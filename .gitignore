@@ -1,0 +1,12 @@
+.env
+.png
+.jpg
+.pdf
+.ipynb_checkpoints
+test.py
+users_data
+logs.json
+token.json
+.idea
+logs.tsv
+signed
