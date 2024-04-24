@@ -20,12 +20,5 @@ env = Env()
 env.read_env()
 config = Config(
     BOT_TOKEN=env('BOT_TOKEN_PROD'),
-    # SOME_MORE_TOKEN=env(''),
-
-    host=env('host'),
-    dbname=env('dbname'),
-    user=env('user'),
-    password=env('password'),
-    port=env.int('port')
 )
 
