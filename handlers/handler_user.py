@@ -7,8 +7,11 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import CallbackQuery, Message, URLInputFile, FSInputFile, InputMediaPhoto
 from config import config
 from settings import *
-from sign_read import read_sign, process_pdf
+from cv_and_pdf import read_sign, process_pdf
 import keyboards
+from translate_api import valid_codes
+import ocr_api
+
 
 # Инициализация бота
 TKN = config.BOT_TOKEN
@@ -18,7 +21,8 @@ storage: MemoryStorage = MemoryStorage()
 
 # команда /start
 @router.message(CommandStart())
-async def start_command(message: Message, bot: Bot):
+async def start_command(message: Message, bot: Bot, state: FSMContext):
+    await state.clear()
     user = message.from_user
     msg_time = message.date.strftime('%Y-%m-%d %H:%M:%S')
     user_id = str(user.id)
@@ -43,9 +47,58 @@ async def start_command(message: Message, bot: Bot):
     await log(logs, user_id, f'{msg_time}, {user.full_name}, @{user.username}, id {user.id}, {user.language_code}')
 
 
-#
+# команда translate
+@router.message(Command('translate'))
+async def put_command(msg: Message, bot: Bot):
+    user = str(msg.from_user.id)
+    await log(logs, user, msg.text)
+    text = ('Выберите способ извлечение текста из PDF:\n'
+            '▫️ OCR - распознавание текста с помощью компьютерного зрения '
+            '(выбирать, если текст расположен внутри картинки, при этом результат может быть неточный)\n'
+            '▫️ TEXT - чтение текста из файла')
+
+    await msg.answer(text=text, reply_markup=keyboards.keyboard_read)
+
+
+# нажата кнопка способа чтения ПДФ > спросить языки
+@router.callback_query(lambda x: x.data in ('ocr', 'text'))
+async def nav(callback: CallbackQuery, bot: Bot, state: FSMContext):
+    # print(callback.model_dump_json(indent=4, exclude_none=True))
+    data = callback.data
+
+    msg_id = callback.message.message_id
+    user = str(callback.from_user.id)
+    await log(logs, user, data)
+    print(f'{data = }')
+    set_pers_info(user, 'read_mode', val=data)
+    text = (f'Выбран режим {data.upper()} ✅\n\n'
+            f'Укажите, с какого языка на какой перевести - два кода через пробел, например:\nen ru')
+    await bot.edit_message_text(text=text, reply_markup=None, message_id=msg_id, chat_id=user)
+
+    # ожидание ввода языков
+    await state.set_state(FSM.page)
+
+
+# юзер указал языки
+@router.message(StateFilter(FSM.page))
+async def page_num(msg: Message,  state: FSMContext):
+    user = str(msg.from_user.id)
+    await log(logs, user, msg.text)
+    lang_pair = msg.text.lower().split()
+    print(f'{lang_pair = }')
+
+    # правильность ввода
+    if len(lang_pair) == 2 and lang_pair[0] in valid_codes and lang_pair[1] in valid_codes:
+        await msg.answer(text=f'Запущен перевод {lang_pair[0].upper()} > {lang_pair[1].upper()}, ожидайте')
+        await state.clear()
+
+    else:
+        await msg.answer(text='Я ожидаю два языковых кода через пробел, в формате:\nen ru')
+
+
+# команды 'put_text', 'put_sign'
 @router.message(Command('put_text', 'put_sign'))
-async def start_command(msg: Message, bot: Bot):
+async def put_command(msg: Message, bot: Bot):
     user = str(msg.from_user.id)
     await log(logs, user, msg.text)
     raw_pdf_path = f'{users_data}/{user}_raw.pdf'
@@ -126,7 +179,8 @@ async def save_pdf(msg: Message, bot: Bot, state: FSMContext):
     inp_path = f'{users_data}/{user}_raw.pdf'
     file_id = msg.document.file_id
     await bot.download(file=file_id, destination=inp_path)
-    await msg.answer(text='Ваш PDF сохранен. Отправьте номер страницы, на которой нужно что-либо вставить.')
+    await msg.answer(text='Ваш PDF сохранен. Отправьте номер страницы, на которой нужно что-либо вставить '
+                          '(отчет начинается с 1).')
 
     # ожидание номера страницы
     await state.set_state(FSM.page)
@@ -147,7 +201,7 @@ async def page_num(msg: Message,  state: FSMContext):
         await msg.answer(text='Я ожидаю номер страницы')
 
 
-# юзер прислал текст
+# юзер прислал текст для вставки
 @router.message(F.content_type.in_({'text'}))
 async def save_text(msg: Message, bot: Bot):
     user = str(msg.from_user.id)
