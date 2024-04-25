@@ -3,6 +3,10 @@ from aiogram.types import InlineKeyboardButton as Button, InlineKeyboardMarkup
 # шаги 
 small, big, zoom = 20, 200, 30
 
+# кнопки способа чтения пдф
+read_ocr = Button(text='OCR', callback_data=f'ocr')
+read_txt = Button(text='Text', callback_data=f'text')
+
 # кнопки навигации
 nav_right5 = Button(text='➡️', callback_data=f'x_+{small}')
 nav_right100 = Button(text='➡️➡️', callback_data=f'x_+{big}')
@@ -22,11 +26,14 @@ plus2 = Button(text='➕➕', callback_data=f'z_+{zoom*3}')   # масштаб
 minus2 = Button(text='➖➖', callback_data=f'z_-{zoom*3}')  # масштаб
 
 # клавиатура из таких кнопок
-kb_list = [
+read_kb_list = [[read_ocr, read_txt]]
+
+nav_kb_list = [
     [plus2, null, nav_up100, null, minus2],
     [plus, null, nav_up5, null, minus],
     [nav_left100, nav_left5, save_button, nav_right5, nav_right100],
     [null, null, nav_down5, null, null],
     [null, null, nav_down100, null, null],
 ]
-keyboard_nav = InlineKeyboardMarkup(inline_keyboard=kb_list)
+keyboard_nav = InlineKeyboardMarkup(inline_keyboard=nav_kb_list)
+keyboard_read = InlineKeyboardMarkup(inline_keyboard=read_kb_list)
