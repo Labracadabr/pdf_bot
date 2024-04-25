@@ -6,7 +6,8 @@ from environs import Env
 @dataclass
 class Config:
     BOT_TOKEN: str = None           # телеграм бот
-    SOME_MORE_TOKEN: str = None     # токен от еще чего-нибудь
+    translate_token: str = None
+    ocr_token: str = None
 
     host: str = None                # хост
     dbname: str = None              # имя базы данных
@@ -20,5 +21,7 @@ env = Env()
 env.read_env()
 config = Config(
     BOT_TOKEN=env('BOT_TOKEN_PROD'),
+    translate_token=env('translate_token'),
+    ocr_token=env('ocr_token'),
 )
 
