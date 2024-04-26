@@ -2,6 +2,7 @@ import requests
 from config import config
 
 # api connect
+# https://ocr.space/OCRAPI
 apikey = config.ocr_token
 api_url = 'https://api.ocr.space/parse/image'
 
