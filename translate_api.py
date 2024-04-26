@@ -28,7 +28,7 @@ def detect_lang(query: str) -> str | bool:
 
 
 # перевести текст
-def translate(query: str, source: str, target: str, ) -> str | bool:
+def translate(query: str, source: str, target: str, ) -> str:
     """
     пример
     payload = {
@@ -45,9 +45,12 @@ def translate(query: str, source: str, target: str, ) -> str | bool:
     url = "https://google-translate1.p.rapidapi.com/language/translate/v2"
     response = requests.post(url, data=payload, headers=headers)
     print('translate status_code', response.status_code)
+
     # если ошибка запроса
     if not response.ok:
-        return False
+        error_message = f'ERROR status_code {response.status_code}\n{str(response.json())}'
+        print(f'{error_message = }')
+        return error_message
 
     data = response.json().get('data')
     print(f'{data = }')
