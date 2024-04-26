@@ -85,6 +85,42 @@ async def ask_read(msg: Message,  state: FSMContext):
         await msg.answer(text='Я ожидаю два языковых кода через пробел, в формате:\nen ru')
 
 
+# указан способ чтения ПДФ
+@router.callback_query(lambda x: x.data in ('ocr', 'text'))
+async def put_command(callback: CallbackQuery, bot: Bot):
+    user = str(callback.from_user.id)
+    data = callback.data
+    msg_id = callback.message.message_id
+    await log(logs, user, data)
+
+    print(f'{data = }')
+    set_pers_info(user, 'read_mode', val=data)
+    text = f'✅ Выбран режим {data.upper()}\nОжидайте перевод'
+    await bot.edit_message_text(text=text, reply_markup=None, message_id=msg_id, chat_id=user)
+
+    # чтение пдф
+    raw_pdf_path = f'{users_data}/{user}_raw.pdf'
+    text_path = f'{users_data}/{user}_text_from_pdf.txt'
+    read_pdf_pages(raw_pdf_path, text_path, read_mode=data)
+
+    # запуск перевода
+    lang_pair = get_pers_info(user, key='lang_pair').split()
+    with open(text_path, 'r', encoding='utf-8') as f:
+        # текст, который надо перевести
+        to_translate = f.read()
+    translation = translate(query=to_translate, source=lang_pair[0], target=lang_pair[1])
+
+    # сохранить текст из пдф
+    file_translated = f'{users_data}/{user}_translated.txt'
+    with open(file_translated, 'w', encoding='utf-8') as f:
+        print(translation, file=f)
+
+    # отправить файл с исходным текстом
+    await bot.send_document(chat_id=user, document=FSInputFile(text_path), caption="Исходный текст")
+    # отправить файл с переводом
+    await bot.send_document(chat_id=user, document=FSInputFile(file_translated), caption="Перевод")
+
+
 # команды 'put_text', 'put_sign'
 @router.message(Command('put_text', 'put_sign'))
 async def put_command(msg: Message, bot: Bot):
