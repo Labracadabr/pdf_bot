@@ -11,49 +11,6 @@ def upd_thresholds(a_value, b_value):
     a = a_value
     b = b_value
 
-def trackbars(img_path):
-    # Create window and trackbars
-    cv2.namedWindow('Controls')
-    cv2.createTrackbar('kernel', 'Controls', a, 50, lambda x: upd_thresholds(x, a))
-    cv2.createTrackbar('thresh', 'Controls', b, 100, lambda x: upd_thresholds(b, x))
-
-    while True:
-        image = cv2.imread(img_path)
-
-        # grayscale & binary
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        _, binary = cv2.threshold(gray, b, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-        # Optionally, perform morphological operations to clean up the binary image
-        kernel = np.ones((a, a), np.uint8)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-
-        # display
-        binary = cv2.resize(binary, (500, 500))
-        cv2.imshow('Binary', binary)
-
-        # Exit on 'q' key press
-        if cv2.waitKey(100) & 0xFF == ord('q'):
-            break
-    cv2.destroyAllWindows()
-
-
-def transparent(img_path):
-    print('transparent', img_path)
-    # na = cv2.imread(img_path)
-    na = img_path
-
-    # Make a True/False mask of pixels whose BGR values sum to more than zero
-    alpha = np.sum(na, axis=-1) > 0
-
-    # Convert True/False to 0/255 and change type to "uint8" to match "na"
-    alpha = np.uint8(alpha * 255)
-
-    # Stack new alpha layer with existing image to go from BGR to BGRA, i.e. 3 channels to 4 channels
-    result = np.dstack((na, alpha))
-    return result
-
-
 def read_sign(img_path, out_path=None):
     print('processing:', img_path)
     # Read the image
@@ -80,9 +37,9 @@ def read_sign(img_path, out_path=None):
         print('file not saved')
 
 
-#
-def process_pdf(xyz: dict, save_path=None, image_path=None, pdf_path=None, page: int = 0, font: int = 30,
-                put_text=None, temp_jpg_path=None):
+# обработка пдф
+def process_pdf(pdf_path, xyz: dict, save_path=None, image_path=None,  page: int = 0, font: int = 30,
+                put_text=None, temp_jpg_path=None, ):
     # открыть страницу пдф
     file_handle = fitz.open(pdf_path)
     target_page = file_handle[int(page)]
@@ -118,6 +75,27 @@ def process_pdf(xyz: dict, save_path=None, image_path=None, pdf_path=None, page:
         print(f'saved to {save_path}')
         return
 
+
+# извлечение текста из pdf
+def read_pdf_pages(pdf_path, output_path, read_mode):
+    print(f'reading pdf, {read_mode = }, {pdf_path = }')
+    output_text = ''
+    page_split = f"{'_'*50}_#PAGE_num#_{'_'*50}\n"
+
+    if read_mode == 'text':
+        with fitz.open(pdf_path) as doc:
+            for num, page in enumerate(doc, start=1):
+                output_text += page_split.replace('num', str(num))
+                output_text += page.get_text()
+
+    elif read_mode == 'ocr':
+        raise AssertionError('нету ocr')
+
+    # сохранить текст из пдф
+    with open(output_path, 'w', encoding='utf-8') as f:
+        print(output_text, file=f)
+
+    print('saved at', output_path)
 
 
 if __name__ == "__main__":
