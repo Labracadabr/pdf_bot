@@ -7,9 +7,9 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import CallbackQuery, Message, URLInputFile, FSInputFile, InputMediaPhoto
 from config import config
 from settings import *
-from cv_and_pdf import read_sign, process_pdf
+from cv_and_pdf import read_sign, process_pdf, read_pdf_pages
 import keyboards
-from translate_api import valid_codes
+from translate_api import valid_codes, translate
 import ocr_api
 
 
@@ -47,50 +47,39 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
     await log(logs, user_id, f'{msg_time}, {user.full_name}, @{user.username}, id {user.id}, {user.language_code}')
 
 
-# команда translate
+# команда translate > спросить языки
 @router.message(Command('translate'))
-async def put_command(msg: Message, bot: Bot):
-    user = str(msg.from_user.id)
-    await log(logs, user, msg.text)
-    text = ('Выберите способ извлечение текста из PDF:\n'
-            '▫️ OCR - распознавание текста с помощью компьютерного зрения '
-            '(выбирать, если текст расположен внутри картинки, при этом результат может быть неточный)\n'
-            '▫️ TEXT - чтение текста из файла')
-
-    await msg.answer(text=text, reply_markup=keyboards.keyboard_read)
-
-
-# нажата кнопка способа чтения ПДФ > спросить языки
-@router.callback_query(lambda x: x.data in ('ocr', 'text'))
-async def nav(callback: CallbackQuery, bot: Bot, state: FSMContext):
+async def ask_lang(msg: Message, bot: Bot, state: FSMContext):
     # print(callback.model_dump_json(indent=4, exclude_none=True))
-    data = callback.data
 
-    msg_id = callback.message.message_id
-    user = str(callback.from_user.id)
-    await log(logs, user, data)
-    print(f'{data = }')
-    set_pers_info(user, 'read_mode', val=data)
-    text = (f'Выбран режим {data.upper()} ✅\n\n'
-            f'Укажите, с какого языка на какой перевести - два кода через пробел, например:\nen ru')
-    await bot.edit_message_text(text=text, reply_markup=None, message_id=msg_id, chat_id=user)
+    text = f'Укажите, с какого языка на какой перевести - два кода через пробел, например:\nen ru'
+    await msg.answer(text=text)
 
     # ожидание ввода языков
     await state.set_state(FSM.page)
 
 
-# юзер указал языки
+# юзер указал языки > спросить способ чтения ПДФ
 @router.message(StateFilter(FSM.page))
-async def page_num(msg: Message,  state: FSMContext):
+async def ask_read(msg: Message,  state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, msg.text)
     lang_pair = msg.text.lower().split()
     print(f'{lang_pair = }')
 
-    # правильность ввода
+    # проверить правильность ввода
     if len(lang_pair) == 2 and lang_pair[0] in valid_codes and lang_pair[1] in valid_codes:
-        await msg.answer(text=f'Запущен перевод {lang_pair[0].upper()} > {lang_pair[1].upper()}, ожидайте')
+        # сохранить
+        set_pers_info(user=user, key='lang_pair', val=f'{lang_pair[0]} {lang_pair[1]}')
+        await msg.answer(text=f'✅ Сохранена пара языков: {lang_pair[0].upper()} -> {lang_pair[1].upper()}')
         await state.clear()
+
+        # спросить способ чтения
+        text = ('Выберите способ извлечение текста из PDF:\n'
+                '▫️ OCR - оптическое распознавание символов с помощью компьютерного зрения '
+                '(подходит, если текст расположен на картинке; при этом результат может быть неточный)\n'
+                '▫️ TEXT - чтение текста из файла (если текст сохранен как текст)')
+        await msg.answer(text=text, reply_markup=keyboards.keyboard_read)
 
     else:
         await msg.answer(text='Я ожидаю два языковых кода через пробел, в формате:\nen ru')
