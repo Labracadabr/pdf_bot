@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from fitz import fitz
+from ocr_api import ocr_image
 
 # k = 19
 a, b = 0, 0
@@ -38,7 +39,7 @@ def read_sign(img_path, out_path=None):
 
 
 # обработка пдф
-def process_pdf(pdf_path, xyz: dict, save_path=None, image_path=None,  page: int = 0, font: int = 30,
+def process_pdf(pdf_path, xyz: dict = None, save_path=None, image_path=None,  page: int = 0, font: int = 30,
                 put_text=None, temp_jpg_path=None, ):
     # открыть страницу пдф
     file_handle = fitz.open(pdf_path)
@@ -77,7 +78,7 @@ def process_pdf(pdf_path, xyz: dict, save_path=None, image_path=None,  page: int
 
 
 # извлечение текста из pdf
-def read_pdf_pages(pdf_path, output_path, read_mode):
+def read_pdf_pages(pdf_path, output_path, read_mode, render_tmp_path=None, language=None):
     print(f'reading pdf, {read_mode = }, {pdf_path = }')
     output_text = ''
     page_split = f"{'_'*50}_#PAGE_num#_{'_'*50}\n"
@@ -89,7 +90,20 @@ def read_pdf_pages(pdf_path, output_path, read_mode):
                 output_text += page.get_text()
 
     elif read_mode == 'ocr':
-        raise AssertionError('нету ocr')
+        assert (render_tmp_path and language)
+        page = 0
+        while True:
+            print(f'ocr pdf {page = }')
+            try:
+                process_pdf(pdf_path, page=page, temp_jpg_path=render_tmp_path)
+                ocr_result = ocr_image(filename=render_tmp_path, language=language)
+
+                output_text += page_split.replace('num', str(page+1))
+                output_text += ocr_result
+                page += 1
+            except Exception as e:
+                print(e)
+                break
 
     # сохранить текст из пдф
     with open(output_path, 'w', encoding='utf-8') as f:
@@ -99,5 +113,8 @@ def read_pdf_pages(pdf_path, output_path, read_mode):
 
 
 if __name__ == "__main__":
-    read_sign('signs\992863889_raw.jpg', 'signs/992863889_bin.png')
+    pass
+    path = r'C:\Users\Dmitrii\PycharmProjects\pdf_bot\users_data\992863889_Dmitrii-Minokin.pdf'
+    read_pdf_pages(path, output_path='test_pdf.txt', read_mode='text')
+    # read_sign('signs\992863889_raw.jpg', 'signs/992863889_bin.png')
 

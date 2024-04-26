@@ -92,6 +92,7 @@ async def put_command(callback: CallbackQuery, bot: Bot):
     data = callback.data
     msg_id = callback.message.message_id
     await log(logs, user, data)
+    lang_pair = get_pers_info(user, key='lang_pair').split()
 
     print(f'{data = }')
     set_pers_info(user, 'read_mode', val=data)
@@ -101,10 +102,10 @@ async def put_command(callback: CallbackQuery, bot: Bot):
     # чтение пдф
     raw_pdf_path = f'{users_data}/{user}_raw.pdf'
     text_path = f'{users_data}/{user}_text_from_pdf.txt'
-    read_pdf_pages(raw_pdf_path, text_path, read_mode=data)
+    render_tmp_path = f'{users_data}/{user}_ocr_tmp.png'
+    read_pdf_pages(raw_pdf_path, text_path, read_mode=data, language=lang_pair[0], render_tmp_path=render_tmp_path)
 
     # запуск перевода
-    lang_pair = get_pers_info(user, key='lang_pair').split()
     with open(text_path, 'r', encoding='utf-8') as f:
         # текст, который надо перевести
         to_translate = f.read()
