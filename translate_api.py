@@ -2,48 +2,27 @@ import requests
 from config import config
 
 # API connect
-# https://rapidapi.com/googlecloud/api/google-translate1/
+# https://rapidapi.com/microsoft-azure-org-microsoft-cognitive-services/api/microsoft-translator-text/
 APIKey = config.translate_token
+url = "https://microsoft-translator-text.p.rapidapi.com/translate"
 headers = {
-    "content-type": "application/x-www-form-urlencoded",
-    "Accept-Encoding": "application/gzip",
+    "content-type": "application/json",
     "X-RapidAPI-Key": APIKey,
-    "X-RapidAPI-Host": "google-translate1.p.rapidapi.com"
+    "X-RapidAPI-Host": "microsoft-translator-text.p.rapidapi.com"
 }
-
-
-# распознать язык
-def detect_lang(query: str) -> str | bool:
-    url = "https://google-translate1.p.rapidapi.com/language/translate/v2/detect"
-    response = requests.post(url, data={'q': query}, headers=headers)
-    print('detect_lang status_code', response.status_code)
-    # если ошибка запроса
-    if not response.ok:
-        return False
-
-    data = response.json().get('data')
-    print(f'{data = }')
-    language = data.get('detections')[0][0].get('language')
-    return language
 
 
 # перевести текст
 def translate(query: str, source: str, target: str, ) -> str:
     """
     пример
-    payload = {
-        "q": "Hello, world!",
-        "source": "en",
-        "target": "es",
-        }
+    "query": "Hello, world!",
+    "source": "en",  # в этой версии source определяется сам
+    "target": "es",
     """
-    payload = {
-        "q": query,
-        "source": source,
-        "target": target,
-    }
-    url = "https://google-translate1.p.rapidapi.com/language/translate/v2"
-    response = requests.post(url, data=payload, headers=headers)
+    querystring = {"to[0]": target, "api-version": "3.0", "profanityAction": "NoAction", "textType": "plain"}
+    payload = [{"Text": query}]
+    response = requests.post(url, json=payload, headers=headers, params=querystring)
     print('translate status_code', response.status_code)
 
     # если ошибка запроса
@@ -52,9 +31,9 @@ def translate(query: str, source: str, target: str, ) -> str:
         print(f'{error_message = }')
         return error_message
 
-    data = response.json().get('data')
+    data = response.json()
     print(f'{data = }')
-    translation = data.get('translations')[0].get('translatedText')
+    translation = data[0].get('translations')[0].get('text')
     return translation
 
 
@@ -69,6 +48,5 @@ valid_codes = ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg",
                ]
 
 if __name__ == "__main__":
-    print(detect_lang('merhaba benim adim mehmet'))
-
+    pass
     print(translate(query='merhaba benim adim mehmet', target='ru', source='tr'))
