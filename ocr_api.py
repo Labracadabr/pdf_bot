@@ -1,5 +1,6 @@
 import requests
 from config import config
+from translate_api import language_codes
 
 # api connect
 # https://ocr.space/OCRAPI
@@ -22,10 +23,10 @@ def ocr_image(filename, overlay=False, language='eng') -> str:
     :return: Result in JSON format.
     """
 
-    language = 'rus' if language == 'ru' else language
-    language = 'eng' if language == 'en' else language
-    language = 'esp' if language == 'es' else language
+    # перевести код языка из 2 символов в 3, например "tr" > "tur"
+    language = language_codes.get(language)
 
+    # запрос
     payload = {'isOverlayRequired': overlay,
                'apikey': apikey,
                'language': language,

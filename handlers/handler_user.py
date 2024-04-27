@@ -9,7 +9,7 @@ from config import config
 from settings import *
 from cv_and_pdf import read_sign, process_pdf, read_pdf_pages
 import keyboards
-from translate_api import valid_codes, translate
+from translate_api import language_codes, translate
 import ocr_api
 
 
@@ -37,7 +37,11 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
         set_pers_info(user=user_id, key='coord', val=coord)
 
     # приветствие
-    await message.answer(text='Привет!\nОтправьте ваш PDF')
+    text = ('Привет! Отправьте свой PDF, и я смогу сделать следующее:'
+            '\n▫️ Вставить в указанное вами место текст, либо вашу подпись (пришлите фото подписи, и я отделю ее от фона)'
+            '\n▫️ Прочитать ваш PDF и перевести его содержимое на выбранный вами язык'
+            '')
+    await message.answer(text=text)
     # сообщить админу, кто стартанул бота
     alert = f'➕ user {contact_user(user=user)}'
     for i in admins:
@@ -68,7 +72,7 @@ async def ask_read(msg: Message,  state: FSMContext):
     print(f'{lang_pair = }')
 
     # проверить правильность ввода
-    if len(lang_pair) == 2 and lang_pair[0] in valid_codes and lang_pair[1] in valid_codes:
+    if len(lang_pair) == 2 and lang_pair[0] in language_codes.keys() and lang_pair[1] in language_codes.keys():
         # сохранить
         set_pers_info(user=user, key='lang_pair', val=f'{lang_pair[0]} {lang_pair[1]}')
         await msg.answer(text=f'✅ Сохранена пара языков: {lang_pair[0].upper()} -> {lang_pair[1].upper()}')
@@ -109,7 +113,7 @@ async def put_command(callback: CallbackQuery, bot: Bot):
     with open(text_path, 'r', encoding='utf-8') as f:
         # текст, который надо перевести
         to_translate = f.read()
-    translation = translate(query=to_translate, source=lang_pair[0], target=lang_pair[1])
+    translation = translate(query=to_translate, target=lang_pair[1])
 
     # сохранить текст из пдф
     file_translated = f'{users_data}/{user}_translated.txt'
@@ -196,10 +200,10 @@ async def save_sign(msg: Message, bot: Bot):
 @router.message(F.content_type.in_({'document'}))
 async def save_pdf(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
-    await log(logs, user, 'saving pdf')
-
     doc_type = msg.document.mime_type
-    print(f'{doc_type = }')
+    await log(logs, user, f'{doc_type = }')
+    if 'pdf' not in doc_type:
+        return
 
     # download
     inp_path = f'{users_data}/{user}_raw.pdf'

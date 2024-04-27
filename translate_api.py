@@ -13,11 +13,10 @@ headers = {
 
 
 # перевести текст
-def translate(query: str, source: str, target: str, ) -> str:
+def translate(query: str, target: str, ) -> str:
     """
-    пример
+    Язык исходника распознается сам. Пример ввода:
     "query": "Hello, world!",
-    "source": "en",  # в этой версии source определяется сам
     "target": "es",
     """
     querystring = {"to[0]": target, "api-version": "3.0", "profanityAction": "NoAction", "textType": "plain"}
@@ -37,16 +36,35 @@ def translate(query: str, source: str, target: str, ) -> str:
     return translation
 
 
-# для проверки - существует ли язык (тут просто 100 языков, можно больше, наверное)
-valid_codes = ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg", "ca", "ceb", "ny", "zh-cn", "zh",
-               "zh-tw", "co", "hr", "cs", "da", "nl", "en", "eo", "et", "tl", "fi", "fr", "fy", "gl", "ka",
-               "de", "el", "gu", "ht", "ha", "haw", "iw", "he", "hi", "hmn", "hu", "is", "ig", "id", "ga",
-               "it", "ja", "jw", "kn", "kk", "km", "ko", "ku", "ky", "lo", "la", "lv", "lt", "lb", "mk", "mg",
-               "ms", "ml", "mt", "mi", "mr", "mn", "my", "ne", "no", "or", "ps", "fa", "pl", "pt", "pa", "ro",
-               "ru", "sm", "gd", "sr", "st", "sn", "sd", "si", "sk", "sl", "so", "es", "su", "sw", "sv", "tg",
-               "ta", "tt", "te", "th", "tr", "tk", "uk", "ur", "ug", "uz", "vi", "cy", "xh", "yi", "yo", "zu"
-               ]
+# для проверки - существует ли язык (тут всё, что поддерживает api OCR)
+language_codes = {
+    'ar': 'ara',
+    'bg': 'bul',
+    'chs': 'chs',
+    'cht': 'cht',
+    'hr': 'hrv',
+    'cs': 'cze',
+    'da': 'dan',
+    'nl': 'dut',
+    'en': 'eng',
+    'fi': 'fin',
+    'fr': 'fre',
+    'de': 'ger',
+    'el': 'gre',
+    'hu': 'hun',
+    'ko': 'kor',
+    'it': 'ita',
+    'ja': 'jpn',
+    'pl': 'pol',
+    'pt': 'por',
+    'ru': 'rus',
+    'sl': 'slv',
+    'es': 'spa',
+    'sv': 'swe',
+    'tr': 'tur'
+}
+
 
 if __name__ == "__main__":
     pass
-    print(translate(query='merhaba benim adim mehmet', target='ru', source='tr'))
+    print(translate(query='merhaba benim adim mehmet', target='ru', ))
