@@ -1,17 +1,15 @@
 import os.path
 from aiogram import Router, Bot, F, types
-from aiogram.filters import Command, CommandStart, StateFilter, CommandObject, or_f
+from aiogram.filters import Command, CommandStart, StateFilter
 from bot_logic import *
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import CallbackQuery, Message, URLInputFile, FSInputFile, InputMediaPhoto
+from aiogram.types import CallbackQuery, Message, FSInputFile, InputMediaPhoto
 from config import config
 from settings import *
 from cv_and_pdf import read_sign, process_pdf, read_pdf_pages
 import keyboards
 from translate_api import language_codes, translate
-import ocr_api
-
 
 # Инициализация бота
 TKN = config.BOT_TOKEN
@@ -311,6 +309,10 @@ async def nav(callback: CallbackQuery, bot: Bot):
         signed_pdf_path = f'{users_data}/{user}_{callback.from_user.first_name}-{callback.from_user.last_name}.pdf'
         process_pdf(save_path=signed_pdf_path, image_path=sign_path, put_text=put_text, xyz=coord, font=font, pdf_path=raw_pdf_path, page=page)
         await bot.send_document(chat_id=user, document=FSInputFile(signed_pdf_path), caption="Ваш документ подписан")
+
+        # удалить пдфы
+        os.remove(signed_pdf_path)
+        os.remove(raw_pdf_path)
         return
 
     if edit:
