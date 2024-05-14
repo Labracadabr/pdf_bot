@@ -1,6 +1,6 @@
 import os.path
-from aiogram import Router, Bot, F, types
-from aiogram.filters import Command, CommandStart, StateFilter
+from aiogram import Router, F
+from aiogram.filters import Command, CommandStart, StateFilter, or_f
 from bot_logic import *
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -50,19 +50,19 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
 
 
 # команда translate > спросить языки
-@router.message(Command('translate'))
+@router.message(or_f(Command('translate'), F.text == 'Перевод'))
 async def ask_lang(msg: Message, bot: Bot, state: FSMContext):
-    # print(callback.model_dump_json(indent=4, exclude_none=True))
+    await log(logs, msg.from_user.id, msg.text)
 
     text = f'Укажите, с какого языка на какой перевести - два кода через пробел, например:\nen ru'
     await msg.answer(text=text)
 
     # ожидание ввода языков
-    await state.set_state(FSM.page)
+    await state.set_state(FSM.wait_languages)
 
 
 # юзер указал языки > спросить способ чтения ПДФ
-@router.message(StateFilter(FSM.page))
+@router.message(StateFilter(FSM.wait_languages))
 async def ask_read(msg: Message,  state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, msg.text)
@@ -73,6 +73,8 @@ async def ask_read(msg: Message,  state: FSMContext):
     if len(lang_pair) == 2 and lang_pair[0] in language_codes.keys() and lang_pair[1] in language_codes.keys():
         # сохранить
         set_pers_info(user=user, key='lang_pair', val=f'{lang_pair[0]} {lang_pair[1]}')
+        set_pers_info(user, key='mode', val='translate')
+
         await msg.answer(text=f'✅ Сохранена пара языков: {lang_pair[0].upper()} -> {lang_pair[1].upper()}')
         await state.clear()
 
@@ -89,107 +91,56 @@ async def ask_read(msg: Message,  state: FSMContext):
 
 # указан способ чтения ПДФ
 @router.callback_query(lambda x: x.data in ('ocr', 'text'))
-async def put_command(callback: CallbackQuery, bot: Bot):
+async def put_command(callback: CallbackQuery, bot: Bot, state: FSMContext):
     user = str(callback.from_user.id)
-    data = callback.data
     msg_id = callback.message.message_id
-    await log(logs, user, data)
-    lang_pair = get_pers_info(user, key='lang_pair').split()
 
+    # сохр способ чтения
+    data = callback.data
+    await log(logs, user, data)
     print(f'{data = }')
     set_pers_info(user, 'read_mode', val=data)
-    text = f'✅ Выбран режим {data.upper()}\nОжидайте перевод'
+    text = f'✅ Выбран режим {data.upper()}\nОтправьте PDF документ, который нужно перевести'
     await bot.edit_message_text(text=text, reply_markup=None, message_id=msg_id, chat_id=user)
-
-    # чтение пдф
-    raw_pdf_path = f'{users_data}/{user}_raw.pdf'
-    text_path = f'{users_data}/{user}_text_from_pdf.txt'
-    render_tmp_path = f'{users_data}/{user}_ocr_tmp.png'
-    read_pdf_pages(raw_pdf_path, text_path, read_mode=data, language=lang_pair[0], render_tmp_path=render_tmp_path)
-
-    # запуск перевода
-    with open(text_path, 'r', encoding='utf-8') as f:
-        # текст, который надо перевести
-        to_translate = f.read()
-    translation = translate(query=to_translate, target=lang_pair[1])
-
-    # сохранить текст из пдф
-    file_translated = f'{users_data}/{user}_translated.txt'
-    with open(file_translated, 'w', encoding='utf-8') as f:
-        print(translation, file=f)
-
-    # отправить файл с исходным текстом
-    await bot.send_document(chat_id=user, document=FSInputFile(text_path), caption="Исходный текст")
-    # отправить файл с переводом
-    await bot.send_document(chat_id=user, document=FSInputFile(file_translated), caption="Перевод")
+    await state.set_state(FSM.wait_pdf)
 
 
 # команды 'put_text', 'put_sign'
 @router.message(or_f(Command('put_text', 'put_sign'),
                      InMenuList(['Вставить подпись', 'Вставить текст'])))
-async def put_command(msg: Message, bot: Bot):
+async def put_command(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, msg.text)
-    raw_pdf_path = f'{users_data}/{user}_raw.pdf'
-
-    # задать значения
-    tmp_jpg = f'{users_data}/{user}_tmp.jpg'
-    coord = get_pers_info(user, 'coord')
-    if coord is None:
-        coord = {"x0": 200, "y0": 200, "x1": 300, "y1": 300}
-        set_pers_info(user, key='coord', val=coord)
-    page = get_pers_info(user=user, key='page')
-    if not page:
-        page = 0
-    font = get_pers_info(user=user, key='font')
-    if not font:
-        font = 100
 
     # режим - текст или подпись
     # mode = msg.text.split('_')[-1]
     if 'sign' in msg.text or 'Вставить подпись' in msg.text:
         mode = 'sign'
+        await msg.answer(text='Отправьте документ PDF, в который нужно вставить подпись')
     elif 'text' in msg.text or 'Вставить текст' in msg.text:
         mode = 'text'
+        await msg.answer(text='Отправьте документ PDF, в который нужно добавить текст')
     else:
         raise AssertionError
 
+    # сохранить режим
     set_pers_info(user, key='mode', val=mode)
 
-    if mode == 'sign':
-        # проверить есть ли уже фото подписи
-        sign_path = f'{users_data}/{user}_transp.png'
-        print(f'{sign_path = }')
-        if not os.path.exists(sign_path):
-            await msg.answer(text='Сначала пришлите фото подписи')
-            return
-
-        # рендер подписи в пдф
-        process_pdf(image_path=sign_path, xyz=coord, pdf_path=raw_pdf_path, temp_jpg_path=tmp_jpg, font=font, page=page)
-
-    elif mode == 'text':
-        # проверить есть ли уже текст
-        put_text = get_pers_info(user, 'put_text')
-        print(f'{put_text = }')
-        if not put_text:
-            await msg.answer(text='Сначала пришлите текст для вставки')
-            return
-
-        # рендер текста в пдф
-        process_pdf(put_text=put_text, xyz=coord, pdf_path=raw_pdf_path, temp_jpg_path=tmp_jpg, font=font, page=page)
-
-    await bot.send_photo(photo=FSInputFile(tmp_jpg), chat_id=user, caption=str(coord), reply_markup=keyboards.keyboard_nav)
+    # запросить пдф
+    await log(logs, user, 'waiting pdf')
+    await state.set_state(FSM.wait_pdf)
 
 
-# юзер прислал подпись
+# юзер прислал подпись -> спросить номер страницы
 @router.message(F.content_type.in_({'photo'}))
-async def save_sign(msg: Message, bot: Bot):
+async def save_sign(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, 'reading sign')
 
     # download
     inp_path = f'{users_data}/{user}_raw.jpg'
     file_id = msg.photo[-1].file_id
+    await msg.answer(text='Чтение фото')
     await bot.download(file=file_id, destination=inp_path)
 
     # обработать фото
@@ -198,12 +149,15 @@ async def save_sign(msg: Message, bot: Bot):
 
     print(f'sending {out_path}')
     await bot.send_photo(chat_id=user, photo=FSInputFile(out_path))
-    await msg.answer(text='Подпись сохранена. Для создания PDF-файла с вашей подписью нажмите /put_sign. '
-                          'Чтобы изменить подпись, отправьте новое фото.')
+    await msg.answer(text='Подпись сохранена (можете сфотографировать и отправить её заново сейчас, если не получилась).'
+                          '\nТеперь отправьте номер страницы, на которую нужно вставить. (отчет начинается с 1).')
+
+    # ожидание номера страницы
+    await state.set_state(FSM.wait_page)
 
 
 # юзер прислал свой ПДФ
-@router.message(F.content_type.in_({'document'}))
+@router.message(F.content_type.in_({'document'}), StateFilter(FSM.wait_pdf))
 async def save_pdf(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     doc_type = msg.document.mime_type
@@ -215,74 +169,86 @@ async def save_pdf(msg: Message, bot: Bot, state: FSMContext):
     inp_path = f'{users_data}/{user}_raw.pdf'
     file_id = msg.document.file_id
     await bot.download(file=file_id, destination=inp_path)
-    await msg.answer(text='Ваш PDF сохранен. Отправьте номер страницы, на которой нужно что-либо вставить '
-                          '(отчет начинается с 1).')
 
-    # ожидание номера страницы
-    await state.set_state(FSM.page)
+    mode = get_pers_info(user, key='mode')
+
+    # ожидание подписи
+    if mode == 'sign':
+        await msg.answer(text='Ваш PDF сохранен. '
+                              'Теперь сделайте фото вашей подписи - для этого возьмите белый лист, распишитесь на нем '
+                              'и сделайте фото, чтобы не попадал фон.')
+        await state.set_state(FSM.put_sign)
+
+    # ожидание текста
+    elif mode == 'text':
+        await msg.answer(text='Ваш PDF сохранен. Теперь введите текст, который нужно добавить в ваш документ.')
+        await state.set_state(FSM.put_text)
+
+    # запустить перевод
+    elif mode == 'translate':
+        await msg.answer(text='Ваш PDF сохранен, ожидайте перевод.')
+        text_path, file_translated = trans(user)
+
+        # отправить файл с исходным текстом
+        await bot.send_document(chat_id=user, document=text_path, caption="Исходный текст")
+        # отправить файл с переводом
+        await bot.send_document(chat_id=user, document=file_translated, caption="Перевод")
+
+        await state.clear()
 
 
-# юзер отправил номер страницы
-@router.message(StateFilter(FSM.page))
-async def page_num(msg: Message,  state: FSMContext):
+# юзер отправил номер страницы -> рендерить пдф и кнопки
+@router.message(StateFilter(FSM.wait_page))
+async def page_num(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     page = msg.text
 
     # правильность ввода
     if page.isnumeric():
         set_pers_info(user=user, key='page', val=int(page)-1)
-        await msg.answer(text=f'Номер сохранен: {page}')
+        await msg.answer(text=f'Номер сохранен: {page}\n'
+                               'С помощью кнопок двигайте подпись так, чтобы она стала на нужное место, '
+                               'затем нажмите галочку ✅, чтобы сохранить и получить файл.')
         await state.clear()
     else:
         await msg.answer(text='Я ожидаю номер страницы')
+        return
 
 
-# юзер прислал текст для вставки
-@router.message(F.content_type.in_({'text'}))
-async def save_text(msg: Message, bot: Bot):
+
+# юзер прислал текст для вставки -> спросить номер страницы
+@router.message(StateFilter(FSM.put_text))
+async def save_text(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, 'reading text')
 
     # сохранить
     set_pers_info(user=user, key='put_text', val=msg.text)
-    await msg.answer(text='Текст для вставки сохранен. Для создания PDF-файла с вашей подписью нажмите /put_text. '
-                          'Чтобы изменить текст - отправьте новый.')
+    await msg.answer(text='Текст для вставки сохранен. Отправьте номер страницы, на которую нужно вставить.'
+                          '(отчет начинается с 1).')
+
+    # ожидание номера страницы
+    await state.set_state(FSM.wait_page)
 
 
-# нажата кнопка навигации
+# нажата кнопка навигации -> рендерить пдф и кнопки
 @router.callback_query(lambda x: x.data)
 async def nav(callback: CallbackQuery, bot: Bot):
     # print(callback.model_dump_json(indent=4, exclude_none=True))
     data = callback.data
     msg_id = callback.message.message_id
     user = str(callback.from_user.id)
-    print(f'callback {user = }')
-    print(f'{data = }')
+    print(f'callback {data = }')
     raw_pdf_path = f'{users_data}/{user}_raw.pdf'
-
-    # прочитать БД
-    coord = get_pers_info(user=user, key='coord')
-    page = get_pers_info(user=user, key='page')
-    if not page:
-        page = 0
-
-    font = get_pers_info(user=user, key='font')
-    if not font:
-        font = 30
-    edit = False
 
     # режим - текст или подпись
     mode = get_pers_info(user, key='mode')
-    sign_path = put_text = None
-    if mode == 'sign':
-        sign_path = f'{users_data}/{user}_transp.png'
-        put_text = None
-    elif mode == 'text':
-        sign_path = None
-        put_text = get_pers_info(user, key='put_text')
+    coord = get_pers_info(user=user, key='coord')
+    edit = False
 
     # сдвиг
     if 'x' in data or 'y' in data:
+
         axis, value = data.split('_')
         value = int(value)
         print(f'{axis = }, {value = }')
@@ -298,6 +264,7 @@ async def nav(callback: CallbackQuery, bot: Bot):
         edit = True
         axis, value = data.split('_')
         value = int(value)
+        font = get_pers_info(user=user, key='font')
 
         if mode == 'sign':
             # координаты одного угла, обоих осей
@@ -311,9 +278,22 @@ async def nav(callback: CallbackQuery, bot: Bot):
 
     # сохранить
     elif data in 'save':
+        # прочитать БД
+        sign_path = put_text = None
+        if mode == 'sign':
+            sign_path = f'{users_data}/{user}_transp.png'
+            put_text = None
+        elif mode == 'text':
+            sign_path = None
+            put_text = get_pers_info(user, key='put_text')
+
+        page = get_pers_info(user=user, key='page')
+        font = get_pers_info(user=user, key='font')
+
         await bot.edit_message_caption(chat_id=user, message_id=msg_id, caption=f'✅ Сохранено\n{coord}')
 
         # создать пдф и отправить
+        print(f'{sign_path, put_text = }')
         signed_pdf_path = f'{users_data}/{user}_{callback.from_user.first_name}-{callback.from_user.last_name}.pdf'
         process_pdf(save_path=signed_pdf_path, image_path=sign_path, put_text=put_text, xyz=coord, font=font, pdf_path=raw_pdf_path, page=page)
         await bot.send_document(chat_id=user, document=FSInputFile(signed_pdf_path), caption="Ваш документ подписан")
