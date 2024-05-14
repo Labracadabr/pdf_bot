@@ -214,6 +214,10 @@ async def page_num(msg: Message, bot: Bot, state: FSMContext):
         await msg.answer(text='Я ожидаю номер страницы')
         return
 
+    # рендерить пдф
+    coord = get_pers_info(user=user, key='coord')
+    rendered_pdf = render_pdf_page(user)
+    await bot.send_photo(photo=rendered_pdf, chat_id=user, caption=str(coord), reply_markup=keyboards.keyboard_nav)
 
 
 # юзер прислал текст для вставки -> спросить номер страницы
@@ -310,7 +314,8 @@ async def nav(callback: CallbackQuery, bot: Bot):
         set_pers_info(user=user, key='coord', val=coord)
 
         tmp_jpg = f'{users_data}/{user}_tmp.jpg'
-        process_pdf(image_path=sign_path, put_text=put_text, xyz=coord, temp_jpg_path=tmp_jpg, font=font, pdf_path=raw_pdf_path, page=page)
+        # process_pdf(image_path=sign_path, put_text=put_text, xyz=coord, temp_jpg_path=tmp_jpg, font=font, pdf_path=raw_pdf_path, page=page)
+        rendered_pdf = render_pdf_page(user)
         await bot.edit_message_media(chat_id=user, message_id=msg_id, reply_markup=keyboards.keyboard_nav,
                                      media=InputMediaPhoto(media=rendered_pdf, caption=str(coord)), )
 
