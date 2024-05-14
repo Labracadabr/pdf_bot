@@ -1,6 +1,6 @@
 import requests
 from config import config
-from translate_api import language_codes
+from api_integrations.translate_api import language_codes
 
 # api connect
 # https://ocr.space/OCRAPI
