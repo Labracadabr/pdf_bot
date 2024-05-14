@@ -9,7 +9,7 @@ from config import config
 from settings import *
 from cv_and_pdf import read_sign, process_pdf, read_pdf_pages
 import keyboards
-from translate_api import language_codes, translate
+from api_integrations.translate_api import language_codes, translate
 
 # Инициализация бота
 TKN = config.BOT_TOKEN
@@ -27,8 +27,8 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
     await log(logs, user_id, f'start {contact_user(user=user)}')
 
     # сохранить юзера
-    x = get_pers_info(user=user_id, key='first_start')
-    if x is None:
+    user_data = get_pers_info(user=user_id, key='first_start')
+    if user_data is None:
         set_pers_info(user=user_id, key='first_start', val=msg_time)
         set_pers_info(user=user_id, key='tg_fullname', val=user.full_name)
         coord = {"x0": 200, "y0": 200, "x1": 300, "y1": 300}
@@ -39,7 +39,7 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
             '\n▫️ Вставить в указанное вами место текст, либо вашу подпись (пришлите фото подписи, и я отделю ее от фона)'
             '\n▫️ Прочитать ваш PDF и перевести его содержимое на выбранный вами язык'
             '')
-    await message.answer(text=text)
+    await message.answer(text=text, reply_markup=keyboards.keyboard_menu)
     # сообщить админу, кто стартанул бота
     alert = f'➕ user {contact_user(user=user)}'
     for i in admins:
@@ -125,7 +125,8 @@ async def put_command(callback: CallbackQuery, bot: Bot):
 
 
 # команды 'put_text', 'put_sign'
-@router.message(Command('put_text', 'put_sign'))
+@router.message(or_f(Command('put_text', 'put_sign'),
+                     InMenuList(['Вставить подпись', 'Вставить текст'])))
 async def put_command(msg: Message, bot: Bot):
     user = str(msg.from_user.id)
     await log(logs, user, msg.text)
@@ -145,7 +146,14 @@ async def put_command(msg: Message, bot: Bot):
         font = 100
 
     # режим - текст или подпись
-    mode = msg.text.split('_')[-1]
+    # mode = msg.text.split('_')[-1]
+    if 'sign' in msg.text or 'Вставить подпись' in msg.text:
+        mode = 'sign'
+    elif 'text' in msg.text or 'Вставить текст' in msg.text:
+        mode = 'text'
+    else:
+        raise AssertionError
+
     set_pers_info(user, key='mode', val=mode)
 
     if mode == 'sign':
