@@ -87,7 +87,9 @@ def read_pdf_pages(pdf_path, output_path, read_mode, render_tmp_path=None, langu
     if read_mode == 'text':
         with fitz.open(pdf_path) as doc:
             for num, page in enumerate(doc, start=1):
+                # нумерация страницы
                 output_text += page_split.replace('num', str(num))
+                # сам текст
                 output_text += page.get_text()
 
     elif read_mode == 'ocr':
@@ -96,15 +98,21 @@ def read_pdf_pages(pdf_path, output_path, read_mode, render_tmp_path=None, langu
         while True:
             print(f'ocr pdf {page = }')
             try:
+                # рендер фото страницы
                 process_pdf(pdf_path, page=page, temp_jpg_path=render_tmp_path)
+                # чтение фото с ocr
                 ocr_result = ocr_image(filename=render_tmp_path, language=language)
 
+                # нумерация страницы
                 output_text += page_split.replace('num', str(page+1))
+                # сам текст
                 output_text += ocr_result
                 page += 1
-            except Exception as e:
-                print(e)
+            except IndexError:
+                print('finished reading pdf', pdf_path)
                 break
+    else:
+        raise AssertionError('no read mode')
 
     # сохранить текст из пдф
     with open(output_path, 'w', encoding='utf-8') as f:
@@ -115,7 +123,12 @@ def read_pdf_pages(pdf_path, output_path, read_mode, render_tmp_path=None, langu
 
 if __name__ == "__main__":
     pass
-    path = r'C:\Users\Dmitrii\PycharmProjects\pdf_bot\users_data\992863889_Dmitrii-Minokin.pdf'
-    read_pdf_pages(path, output_path='test_pdf.txt', read_mode='text')
+    path = r'C:\Users\Dmitrii\PycharmProjects\pdf_bot\users_data\992863889_raw.pdf'
+    # path = r'C:\Users\Dmitrii\Downloads\Атом 12.04.docx'
+    read_pdf_pages(path, output_path='test_pdf.txt', read_mode='ocr', language='ru',
+                   render_tmp_path=r'C:\Users\Dmitrii\PycharmProjects\pdf_bot\users_data\992863889_tmp.jpg')
     # read_sign('signs\992863889_raw.jpg', 'signs/992863889_bin.png')
+    # inp = r'C:\Users\Dmitrii\Downloads\Атом 12.04.docx'
+    # out = r'atom.pdf'
+    # doc2pdf(inp, out)
 
