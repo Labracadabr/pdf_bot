@@ -69,6 +69,16 @@ class Access(BaseFilter):
         return user_id_str in self.access
 
 
+# Фильтр, проверяющий принадлежность текста сообщения к списку
+class InMenuList(BaseFilter):
+    # фильтр принимает список со словами
+    def __init__(self, array: list[str]) -> None:
+        self.array = array
+
+    async def __call__(self, message: Message) -> bool:
+        return message.text in self.array
+
+
 # создать команды в меню
 async def set_menu_commands(bot: Bot) -> None:
     await bot.set_my_commands([BotCommand(command=item[0], description=item[1]) for item in commands.items()])
