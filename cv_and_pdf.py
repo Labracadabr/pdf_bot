@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
 from fitz import fitz
-from ocr_api import ocr_image
+from api_integrations.ocr_api import ocr_image
+
 
 # k = 19
 a, b = 0, 0
