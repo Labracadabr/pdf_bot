@@ -84,8 +84,10 @@ async def set_menu_commands(bot: Bot) -> None:
 class FSM(StatesGroup):
     put_text = State()
     put_sign = State()
-    page = State()  # ввод номера страницы
-    languages = State()  # ввод языков
+    wait_pdf = State()
+    wait_lang = State()
+    wait_page = State()  # ввод номера страницы
+    wait_languages = State()  # ввод языков
 
 
 # запись логов в tsv, консоль
