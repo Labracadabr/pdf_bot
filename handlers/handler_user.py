@@ -298,9 +298,12 @@ async def nav(callback: CallbackQuery, bot: Bot):
         process_pdf(save_path=signed_pdf_path, image_path=sign_path, put_text=put_text, xyz=coord, font=font, pdf_path=raw_pdf_path, page=page)
         await bot.send_document(chat_id=user, document=FSInputFile(signed_pdf_path), caption="Ваш документ подписан")
 
-        # удалить пдфы
+        # удалить файлы и данные юзера
         os.remove(signed_pdf_path)
         os.remove(raw_pdf_path)
+        set_pers_info(user=user, key='put_text', val=None)
+        set_pers_info(user=user, key='page', val=None)
+        set_pers_info(user=user, key='font', val=None)
         return
 
     if edit:
