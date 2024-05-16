@@ -5,6 +5,7 @@ button_sign = KeyboardButton(text='Вставить подпись')
 button_text = KeyboardButton(text='Вставить текст')
 button_tran = KeyboardButton(text='Перевод')
 button_read = KeyboardButton(text='Извлечь текст')
+button_return = KeyboardButton(text='Назад')
 
 # кнопки способа чтения пдф
 read_ocr = Button(text='OCR', callback_data=f'ocr')
@@ -41,9 +42,10 @@ nav_kb_list = [
     [null, null, nav_down100, null, null],
 ]
 menu_kb_list = [[button_sign, button_text, ],
-                [button_tran, button_read, ]]
+                [button_tran]]
 
 # клавиатуры из кнопок
 keyboard_read = InlineKeyboardMarkup(inline_keyboard=read_kb_list)
 keyboard_nav = InlineKeyboardMarkup(inline_keyboard=nav_kb_list)
 keyboard_menu = ReplyKeyboardMarkup(keyboard=menu_kb_list, resize_keyboard=True)
+keyboard_return = ReplyKeyboardMarkup(keyboard=[[button_return]], resize_keyboard=True)

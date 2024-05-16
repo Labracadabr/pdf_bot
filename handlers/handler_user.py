@@ -58,7 +58,7 @@ async def ask_lang(msg: Message, bot: Bot, state: FSMContext):
     await log(logs, msg.from_user.id, msg.text)
 
     text = f'Укажите, с какого языка на какой перевести - два кода через пробел, например:\nen ru'
-    await msg.answer(text=text)
+    await msg.answer(text=text, reply_markup=keyboards.keyboard_return)
 
     # ожидание ввода языков
     await state.set_state(FSM.wait_languages)
@@ -124,15 +124,15 @@ async def put_command(msg: Message, state: FSMContext):
     await log(logs, user, msg.text)
 
     # режим - текст или подпись
-    # mode = msg.text.split('_')[-1]
     if 'sign' in msg.text or 'Вставить подпись' in msg.text:
         mode = 'sign'
-        await msg.answer(text='Отправьте документ PDF, в который нужно вставить подпись')
+        text = 'Отправьте документ PDF, в который нужно вставить подпись'
     elif 'text' in msg.text or 'Вставить текст' in msg.text:
         mode = 'text'
-        await msg.answer(text='Отправьте документ PDF, в который нужно добавить текст')
+        text = 'Отправьте документ PDF, в который нужно добавить текст'
     else:
         raise AssertionError
+    await msg.answer(text=text, reply_markup=keyboards.keyboard_return)
 
     # сохранить режим
     set_pers_info(user, key='mode', val=mode)
@@ -143,7 +143,7 @@ async def put_command(msg: Message, state: FSMContext):
 
 
 # юзер прислал подпись -> спросить номер страницы
-@router.message(F.content_type.in_({'photo'}))
+@router.message(F.content_type.in_({'photo'}), StateFilter(FSM.put_sign))
 async def save_sign(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, 'reading sign')
@@ -311,7 +311,7 @@ async def nav(callback: CallbackQuery, bot: Bot):
         print(f'{sign_path, put_text = }')
         signed_pdf_path = f'{users_data}/{user}_{callback.from_user.first_name}-{callback.from_user.last_name}.pdf'
         process_pdf(save_path=signed_pdf_path, image_path=sign_path, put_text=put_text, xyz=coord, font=font, pdf_path=raw_pdf_path, page=page)
-        await bot.send_document(chat_id=user, document=FSInputFile(signed_pdf_path), caption="Ваш документ подписан")
+        await bot.send_document(chat_id=user, document=FSInputFile(signed_pdf_path), caption="Ваш документ подписан", reply_markup=keyboards.keyboard_menu)
 
         # удалить файлы и данные юзера
         os.remove(signed_pdf_path)
@@ -329,3 +329,14 @@ async def nav(callback: CallbackQuery, bot: Bot):
         rendered_pdf = render_pdf_page(user)
         await bot.edit_message_media(chat_id=user, message_id=msg_id, reply_markup=keyboards.keyboard_nav,
                                      media=InputMediaPhoto(media=rendered_pdf, caption=str(coord)), )
+
+
+# команда translate > спросить языки
+@router.message(F.text == 'Назад')
+async def ask_lang(msg: Message, bot: Bot, state: FSMContext):
+    await log(logs, msg.from_user.id, msg.text)
+
+    text = f'Выберите действие в меню 👇'
+    await msg.answer(text=text, reply_markup=keyboards.keyboard_menu)
+    await state.clear()
+
