@@ -1,5 +1,6 @@
 import json
-from pprint import pprint
+from api_integrations.translate_api import translate
+from cv_and_pdf import read_pdf_pages, process_pdf
 from aiogram.filters import BaseFilter
 from aiogram.filters.state import State, StatesGroup
 import os
@@ -133,3 +134,67 @@ def contact_user(user: User) -> str:
     tg_url = f'<a href="tg://user?id={user.id}">{user.full_name}</a>'
     text = f'{tg_url} id{user.id} @{user.username}'
     return text
+
+
+# изменить пдф и рендерить фото страницы
+def render_pdf_page(user: str) -> FSInputFile:
+    # путь пдф
+    raw_pdf_path = f'{users_data}/{user}_raw.pdf'
+    # путь отрендеренной фотки
+    tmp_jpg = f'{users_data}/{user}_tmp.jpg'
+
+    # задать значения
+    coord = get_pers_info(user, 'coord')
+    if coord is None:
+        coord = {"x0": 200, "y0": 200, "x1": 300, "y1": 300}
+        set_pers_info(user, key='coord', val=coord)
+    # прочитать БД
+    coord = get_pers_info(user=user, key='coord')
+    page = get_pers_info(user=user, key='page')
+    if not page:
+        page = 0
+
+    # шрифт
+    font = get_pers_info(user=user, key='font')
+    if not font:
+        font = 30
+
+    # режим - текст или подпись
+    mode = get_pers_info(user, key='mode')
+    sign_path = put_text = None
+    if mode == 'sign':
+        sign_path = f'{users_data}/{user}_transp.png'
+        put_text = None
+    elif mode == 'text':
+        sign_path = None
+        put_text = get_pers_info(user, key='put_text')
+
+    process_pdf(image_path=sign_path, put_text=put_text, xyz=coord, temp_jpg_path=tmp_jpg, font=font,
+                pdf_path=raw_pdf_path, page=page)
+
+    return FSInputFile(tmp_jpg)
+
+
+# запуск перевода
+def trans(user: str) -> (FSInputFile, FSInputFile, ):
+    lang_pair = get_pers_info(user, key='lang_pair').split()
+    read_mode = get_pers_info(user, key='read_mode')
+
+    # чтение пдф
+    raw_pdf_path = f'{users_data}/{user}_raw.pdf'
+    text_path = f'{users_data}/{user}_text_from_pdf.txt'
+    render_tmp_path = f'{users_data}/{user}_ocr_tmp.png'
+    read_pdf_pages(raw_pdf_path, text_path, read_mode=read_mode, language=lang_pair[0], render_tmp_path=render_tmp_path)
+
+    # запуск перевода
+    with open(text_path, 'r', encoding='utf-8') as f:
+        # текст, который надо перевести
+        to_translate = f.read()
+    translation = translate(query=to_translate, target=lang_pair[1])
+
+    # сохранить текст из пдф
+    file_translated = f'{users_data}/{user}_translated.txt'
+    with open(file_translated, 'w', encoding='utf-8') as f:
+        print(translation, file=f)
+
+    return FSInputFile(text_path), FSInputFile(file_translated)

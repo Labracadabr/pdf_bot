@@ -3,7 +3,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram import Bot, Dispatcher
 from handlers import handler_user
 from config import config
-from bot_logic import set_menu_commands
+from utils import set_menu_commands
 
 async def main():
     # Инициализация бота
