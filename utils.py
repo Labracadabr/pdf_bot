@@ -80,17 +80,6 @@ class InMenuList(BaseFilter):
         return message.text in self.array
 
 
-# создать команды в меню
-async def set_menu_commands(bot: Bot) -> None:
-    await bot.set_my_commands([BotCommand(command=item[0], description=item[1]) for item in commands.items()])
-    print('Команды созданы')
-
-    # ссылка на бота
-    bot_info = await bot.get_me()
-    bot_link = f"https://t.me/{bot_info.username}"
-    print(f'{bot_link = }')
-
-
 # Состояния FSM, в которых будет находиться бот в разные моменты взаимодействия с юзером
 class FSM(StatesGroup):
     put_text = State()
