@@ -88,8 +88,16 @@ async def ask_read(msg: Message,  state: FSMContext):
                 '▫️ TEXT - чтение текста из файла (если текст сохранен как текст)')
         await msg.answer(text=text, reply_markup=keyboards.keyboard_read)
 
-    else:
+    elif len(lang_pair) != 2:
         await msg.answer(text='Я ожидаю два языковых кода через пробел, в формате:\nen ru')
+
+    else:
+        wrong = ''
+        if lang_pair[0] not in language_codes.keys():
+            wrong = lang_pair[0]
+        elif lang_pair[1] not in language_codes.keys():
+            wrong = lang_pair[1]
+        await msg.answer(text=f'Язык {wrong.upper()} не поддерживается')
 
 
 # указан способ чтения ПДФ
