@@ -33,6 +33,7 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
         set_pers_info(user=user_id, key='tg_fullname', val=user.full_name)
         coord = {"x0": 200, "y0": 200, "x1": 300, "y1": 300}
         set_pers_info(user=user_id, key='coord', val=coord)
+        set_pers_info(user=user_id, key='font', val=30)
 
     # приветствие
     text = ('Привет! Этот бот предназначен для работы с документами PDF и их обработки. К его функциям относятся следующие:'
@@ -233,7 +234,7 @@ async def page_num(msg: Message, bot: Bot, state: FSMContext):
 
 # юзер прислал текст для вставки -> спросить номер страницы
 @router.message(StateFilter(FSM.put_text))
-async def save_text(msg: Message, bot: Bot, state: FSMContext):
+async def save_text(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, 'reading text')
 
@@ -333,7 +334,7 @@ async def nav(callback: CallbackQuery, bot: Bot):
 
 # команда translate > спросить языки
 @router.message(F.text == 'Назад')
-async def ask_lang(msg: Message, bot: Bot, state: FSMContext):
+async def key_return(msg: Message, state: FSMContext):
     await log(logs, msg.from_user.id, msg.text)
 
     text = f'Выберите действие в меню 👇'
