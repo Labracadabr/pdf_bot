@@ -7,7 +7,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import CallbackQuery, Message, FSInputFile, InputMediaPhoto
 from config import config
 from settings import *
-from cv_and_pdf import read_sign, process_pdf, count_pdf_pages
+from cv_and_pdf import read_sign, process_pdf, count_pdf_pages, delete_pdf_pages
 import keyboards
 from api_integrations.translate_api import language_codes, translate
 
@@ -36,12 +36,13 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
         set_pers_info(user=user_id, key='font', val=30)
 
     # приветствие
-    text = ('Привет! Этот бот предназначен для работы с документами PDF и их обработки. К его функциям относятся следующие:'
-            '\n1. Подпись документа PDF.'
-            '\n2. Добавление информации в определенное место документа PDF.'
-            '\n3. Перевод страниц документа PDF на указанный язык с выводом в новый документ.'
-            '\n4. Чтение текста из изображений документа PDF (OCR) c возможностью перевода.'
-            '\nВыбери действие по обработке твоего PDF документа 👇')
+    text = (
+        'Привет! Этот бот предназначен для работы с документами PDF и их обработки. К его функциям относятся следующие:'
+        '\n1. Подпись документа PDF.'
+        '\n2. Добавление информации в определенное место документа PDF.'
+        '\n3. Перевод страниц документа PDF на указанный язык с выводом в новый документ.'
+        '\n4. Чтение текста из изображений документа PDF (OCR) c возможностью перевода.'
+        '\nВыбери действие по обработке твоего PDF документа 👇')
 
     await message.answer(text=text, reply_markup=keyboards.keyboard_menu)
     # сообщить админу, кто стартанул бота
@@ -67,7 +68,7 @@ async def ask_lang(msg: Message, state: FSMContext):
 
 # юзер указал языки > спросить способ чтения ПДФ
 @router.message(StateFilter(FSM.wait_languages))
-async def ask_read(msg: Message,  state: FSMContext):
+async def ask_read(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, msg.text)
     lang_pair = msg.text.lower().split()
@@ -161,8 +162,9 @@ async def save_sign(msg: Message, bot: Bot, state: FSMContext):
 
     print(f'sending {out_path}')
     await bot.send_photo(chat_id=user, photo=FSInputFile(out_path))
-    await msg.answer(text='Подпись сохранена (можете сфотографировать и отправить её заново сейчас, если не получилась).'
-                          '\nТеперь отправьте номер страницы, на которую нужно вставить. (отчет начинается с 1).')
+    await msg.answer(
+        text='Подпись сохранена (можете сфотографировать и отправить её заново сейчас, если не получилась).'
+             '\nТеперь отправьте номер страницы, на которую нужно вставить. (отчет начинается с 1).')
 
     # ожидание номера страницы
     await state.set_state(FSM.wait_page)
@@ -172,17 +174,19 @@ async def save_sign(msg: Message, bot: Bot, state: FSMContext):
 @router.message(F.content_type.in_({'document'}), StateFilter(FSM.wait_pdf))
 async def receive_pdf(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
+    await bot.send_chat_action(action='typing', chat_id=user)
     doc_type = msg.document.mime_type
     await log(logs, user, f'{doc_type = }')
     if not doc_type.endswith('pdf'):
         await msg.answer(text="Я ожидаю файл в формате PDF")
         return
+    msg_to_delete = await msg.answer(text="Скачиваю ваш файл...")
 
     # download
     inp_path = f'{users_data}/{user}_raw.pdf'
     file_id = msg.document.file_id
     await bot.download(file=file_id, destination=inp_path)
-
+    await bot.delete_message(chat_id=user, message_id=msg_to_delete.message_id)
     mode = get_pers_info(user, key='mode')
 
     # ожидание подписи
@@ -196,6 +200,12 @@ async def receive_pdf(msg: Message, bot: Bot, state: FSMContext):
     elif mode == 'text':
         await msg.answer(text='Ваш PDF сохранен. Теперь введите текст, который нужно добавить в ваш документ.')
         await state.set_state(FSM.put_text)
+
+    # ожидание номеров страниц на удаление
+    elif mode == 'delete':
+        await msg.answer(text='Ваш PDF сохранен. Теперь введите номера страниц, которые нужно удалить, через пробел. '
+                              'Например:\n6 7 12')
+        await state.set_state(FSM.delete_pages)
 
     # запустить перевод
     elif mode == 'translate':
@@ -226,10 +236,10 @@ async def page_num(msg: Message, bot: Bot, state: FSMContext):
             return
 
         # сохранить
-        set_pers_info(user=user, key='page', val=int(page)-1)  # сохранить число на 1 меньше
+        set_pers_info(user=user, key='page', val=int(page) - 1)  # сохранить число на 1 меньше
         await msg.answer(text=f'Номер сохранен: {page}\n'
-                               'С помощью кнопок двигайте подпись так, чтобы она стала на нужное место, '
-                               'затем нажмите галочку ✅, чтобы сохранить и получить файл.')
+                              'С помощью кнопок двигайте подпись так, чтобы она стала на нужное место, '
+                              'затем нажмите галочку ✅, чтобы сохранить и получить файл.')
         await state.clear()
     else:
         await msg.answer(text='Я ожидаю номер страницы')
@@ -265,6 +275,7 @@ async def nav(callback: CallbackQuery, bot: Bot):
     data = callback.data
     msg_id = callback.message.message_id
     user = str(callback.from_user.id)
+    await bot.send_chat_action(action='upload_photo', chat_id=user)
     print(f'callback {data = }')
     raw_pdf_path = f'{users_data}/{user}_raw.pdf'
 
@@ -318,6 +329,7 @@ async def nav(callback: CallbackQuery, bot: Bot):
         font = get_pers_info(user=user, key='font')
 
         await bot.edit_message_caption(chat_id=user, message_id=msg_id, caption=f'✅ Сохранено\n{coord}')
+        await bot.send_chat_action(action='upload_photo', chat_id=user)
 
         # создать пдф и отправить
         print(f'{sign_path, put_text = }')
@@ -342,6 +354,73 @@ async def nav(callback: CallbackQuery, bot: Bot):
         rendered_pdf = render_pdf_page(user)
         await bot.edit_message_media(chat_id=user, message_id=msg_id, reply_markup=keyboards.keyboard_nav,
                                      media=InputMediaPhoto(media=rendered_pdf, caption=str(coord)), )
+
+
+# команда delete > спросить номера страниц
+@router.message(or_f(Command('delete'), F.text == 'Удалить страницы'))
+async def delete_command(msg: Message, state: FSMContext):
+    user = str(msg.from_user.id)
+    await log(logs, msg.from_user.id, msg.text)
+
+    # сохранить режим
+    set_pers_info(user, key='mode', val='delete')
+
+    text = 'Отправьте PDF, из которого нужно удалить страницы'
+    await msg.answer(text=text, reply_markup=keyboards.keyboard_return)
+
+    # ожидание пдф
+    await state.set_state(FSM.wait_pdf)
+
+
+# юзер указал номера страниц > удалить их и отправить пдф
+@router.message(StateFilter(FSM.delete_pages), F.content_type.in_({'text'}),)
+async def delete_pages(msg: Message, bot: Bot, state: FSMContext):
+    user = str(msg.from_user.id)
+    await bot.send_chat_action(action='typing', chat_id=user)
+    await log(logs, msg.from_user.id, msg.text)
+    pages_to_delete = msg.text.split()
+
+    # проверить число страниц
+    pdf_path = f'{users_data}/{user}_raw.pdf'
+    pages = count_pdf_pages(pdf_path)
+    if pages == 1:
+        await msg.answer(text=f'Удаление невозможно - в вашем файле всего 1 страница.')
+        await state.clear()
+        return
+
+    # правильность ввода
+    for page in pages_to_delete:
+        if page.isnumeric():
+            if int(page) > pages:
+                await msg.answer(text=f'Укажите числа меньше. В вашем файле {pages} страниц.')
+                return
+            if int(page) < 1:
+                await msg.answer(text=f'Укажите числа больше единицы.')
+                return
+        else:
+            await msg.answer(text="Неверный формат. Я ожидаю номера страниц через пробел.")
+            return
+
+    # убрать дубли
+    pages_to_delete = list(set(pages_to_delete))
+
+    # уведомить о работе
+    msg_to_delete = await msg.answer(text="Обрабатываю ваш файл...")
+    await bot.send_chat_action(action='upload_document', chat_id=user)
+
+    # удалить страницы, сохранить и отправить
+    caption = f"Удалено {len(pages_to_delete)} страниц: {', '.join(sorted(pages_to_delete, key=lambda x: int(x)))}."
+    edited_pdf_path = f'{users_data}/{user}_del.pdf'
+    delete_pdf_pages(pdf_path, edited_pdf_path, pages=pages_to_delete)
+    await bot.send_document(chat_id=user, document=FSInputFile(edited_pdf_path),
+                            caption=caption, reply_markup=keyboards.keyboard_menu)
+    await bot.delete_message(chat_id=user, message_id=msg_to_delete.message_id)
+
+    # удалить файлы и данные юзера
+    os.remove(pdf_path)
+    os.remove(edited_pdf_path)
+    set_pers_info(user=user, key='mode', val=None)
+    await state.clear()
 
 
 # юзер делает что-то не нужное

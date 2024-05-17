@@ -6,12 +6,8 @@ dima = "992863889"
 admins: list[str] = [dima]
 
 # где хранятся данные
-logs = 'logs.tsv'
-users_data = 'users_data'  # папка с json-ами
-
-# tg канал для логов
-log_channel_id = ''
-# log_channel_id = '-1002105757977'
+logs = 'logs.tsv'  # тсв с логами
+users_data = 'users_data'  # папка с данными юзеров
 
 # команды бота
 commands = {
@@ -19,10 +15,13 @@ commands = {
     "/put_text": "Разместить текст",
     "/put_sign": "Разместить подпись",
     "/translate": "Перевести текст из PDF",
+    "/delete": "Удалить страницы",
 }
 
 # проверить все ли на месте
 def check_files():
+    os.makedirs(users_data, exist_ok=True)
+
     file_list = [logs, ]
     for file in file_list:
         if not os.path.isfile(file):

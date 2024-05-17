@@ -86,8 +86,9 @@ class FSM(StatesGroup):
     put_sign = State()
     wait_pdf = State()
     wait_lang = State()
-    wait_page = State()  # ввод номера страницы
+    wait_page = State()  # ввод номера страницы для чтения
     wait_languages = State()  # ввод языков
+    delete_pages = State()  # ввод страниц для удаления
 
 
 # запись логов в tsv, консоль
