@@ -170,11 +170,12 @@ async def save_sign(msg: Message, bot: Bot, state: FSMContext):
 
 # юзер прислал свой ПДФ
 @router.message(F.content_type.in_({'document'}), StateFilter(FSM.wait_pdf))
-async def save_pdf(msg: Message, bot: Bot, state: FSMContext):
+async def receive_pdf(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     doc_type = msg.document.mime_type
     await log(logs, user, f'{doc_type = }')
-    if 'pdf' not in doc_type:
+    if not doc_type.endswith('pdf'):
+        await msg.answer(text="Я ожидаю файл в формате PDF")
         return
 
     # download
