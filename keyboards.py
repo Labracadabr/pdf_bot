@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardButton as Button, InlineKeyboardMarkup, 
 button_sign = KeyboardButton(text='Вставить подпись')
 button_text = KeyboardButton(text='Вставить текст')
 button_tran = KeyboardButton(text='Перевод')
-button_read = KeyboardButton(text='Извлечь текст')
+button_delete = KeyboardButton(text='Удалить страницы')
 button_return = KeyboardButton(text='Назад')
 
 # кнопки способа чтения пдф
@@ -42,7 +42,7 @@ nav_kb_list = [
     [null, null, nav_down100, null, null],
 ]
 menu_kb_list = [[button_sign, button_text, ],
-                [button_tran]]
+                [button_tran, button_delete]]
 
 # клавиатуры из кнопок
 keyboard_read = InlineKeyboardMarkup(inline_keyboard=read_kb_list)
