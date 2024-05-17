@@ -319,7 +319,6 @@ async def nav(callback: CallbackQuery, bot: Bot):
         os.remove(raw_pdf_path)
         set_pers_info(user=user, key='put_text', val=None)
         set_pers_info(user=user, key='page', val=None)
-        set_pers_info(user=user, key='font', val=None)
         return
 
     if edit:
