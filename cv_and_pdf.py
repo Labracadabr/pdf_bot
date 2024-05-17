@@ -4,15 +4,6 @@ from fitz import fitz
 from api_integrations.ocr_api import ocr_image
 
 
-# k = 19
-a, b = 0, 0
-
-# update thresholds
-def upd_thresholds(a_value, b_value):
-    global a, b
-    a = a_value
-    b = b_value
-
 def read_sign(img_path, out_path=None):
     print('processing:', img_path)
     # Read the image
@@ -40,7 +31,8 @@ def read_sign(img_path, out_path=None):
 
 
 # обработка пдф
-def process_pdf(pdf_path, xyz: dict = None, save_path=None, image_path=None,  page: int = 0, font: int = 30,
+def process_pdf(pdf_path, xyz: dict = None, save_path=None,
+                image_path=None,  page: int = 0, font: int = 30,
                 put_text=None, temp_jpg_path=None, ):
     # открыть страницу пдф
     file_handle = fitz.open(pdf_path)
@@ -119,6 +111,15 @@ def read_pdf_pages(pdf_path, output_path, read_mode, render_tmp_path=None, langu
         print(output_text, file=f)
 
     print('saved at', output_path)
+
+
+# посчитать кол-во страниц в пдф
+def count_pdf_pages(pdf_path) -> int:
+    print(f'counting pages {pdf_path = }')
+    file_handle = fitz.open(pdf_path)
+    num_pages = file_handle.page_count
+    file_handle.close()
+    return num_pages
 
 
 if __name__ == "__main__":

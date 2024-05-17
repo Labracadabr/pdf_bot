@@ -7,7 +7,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import CallbackQuery, Message, FSInputFile, InputMediaPhoto
 from config import config
 from settings import *
-from cv_and_pdf import read_sign, process_pdf, read_pdf_pages
+from cv_and_pdf import read_sign, process_pdf, count_pdf_pages
 import keyboards
 from api_integrations.translate_api import language_codes, translate
 
@@ -55,7 +55,7 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
 
 # команда translate > спросить языки
 @router.message(or_f(Command('translate'), F.text == 'Перевод'))
-async def ask_lang(msg: Message, bot: Bot, state: FSMContext):
+async def ask_lang(msg: Message, state: FSMContext):
     await log(logs, msg.from_user.id, msg.text)
 
     text = f'Укажите, с какого языка на какой перевести - два кода через пробел, например:\nen ru'
@@ -144,7 +144,7 @@ async def put_command(msg: Message, state: FSMContext):
 
 
 # юзер прислал подпись -> спросить номер страницы
-@router.message(F.content_type.in_({'photo'}), StateFilter(FSM.put_sign))
+@router.message(F.content_type.in_({'photo'}), or_f(StateFilter(FSM.put_sign), StateFilter(FSM.wait_page), ))
 async def save_sign(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, 'reading sign')
@@ -217,7 +217,15 @@ async def page_num(msg: Message, bot: Bot, state: FSMContext):
 
     # правильность ввода
     if page.isnumeric():
-        set_pers_info(user=user, key='page', val=int(page)-1)
+        # проверить число страниц
+        pdf_path = f'{users_data}/{user}_raw.pdf'
+        pages = count_pdf_pages(pdf_path)
+        if int(page) > pages:
+            await msg.answer(text=f'Укажите число меньше. В вашем файле {pages} страниц.')
+            return
+
+        # сохранить
+        set_pers_info(user=user, key='page', val=int(page)-1)  # сохранить число на 1 меньше
         await msg.answer(text=f'Номер сохранен: {page}\n'
                                'С помощью кнопок двигайте подпись так, чтобы она стала на нужное место, '
                                'затем нажмите галочку ✅, чтобы сохранить и получить файл.')
@@ -229,11 +237,13 @@ async def page_num(msg: Message, bot: Bot, state: FSMContext):
     # рендерить пдф
     coord = get_pers_info(user=user, key='coord')
     rendered_pdf = render_pdf_page(user)
+
+    # отправить кнопки навигации
     await bot.send_photo(photo=rendered_pdf, chat_id=user, caption=str(coord), reply_markup=keyboards.keyboard_nav)
 
 
 # юзер прислал текст для вставки -> спросить номер страницы
-@router.message(StateFilter(FSM.put_text))
+@router.message(StateFilter(FSM.put_text), F.content_type.in_({'text'}), )
 async def save_text(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, 'reading text')
@@ -311,8 +321,10 @@ async def nav(callback: CallbackQuery, bot: Bot):
         # создать пдф и отправить
         print(f'{sign_path, put_text = }')
         signed_pdf_path = f'{users_data}/{user}_{callback.from_user.first_name}-{callback.from_user.last_name}.pdf'
-        process_pdf(save_path=signed_pdf_path, image_path=sign_path, put_text=put_text, xyz=coord, font=font, pdf_path=raw_pdf_path, page=page)
-        await bot.send_document(chat_id=user, document=FSInputFile(signed_pdf_path), caption="Ваш документ подписан", reply_markup=keyboards.keyboard_menu)
+        process_pdf(save_path=signed_pdf_path, image_path=sign_path, put_text=put_text, xyz=coord,
+                    font=font, pdf_path=raw_pdf_path, page=page)
+        await bot.send_document(chat_id=user, document=FSInputFile(signed_pdf_path),
+                                caption="Ваш документ подписан", reply_markup=keyboards.keyboard_menu)
 
         # удалить файлы и данные юзера
         os.remove(signed_pdf_path)
@@ -331,8 +343,8 @@ async def nav(callback: CallbackQuery, bot: Bot):
                                      media=InputMediaPhoto(media=rendered_pdf, caption=str(coord)), )
 
 
-# команда translate > спросить языки
-@router.message(F.text == 'Назад')
+# юзер делает что-то не нужное
+@router.message()
 async def key_return(msg: Message, state: FSMContext):
     await log(logs, msg.from_user.id, msg.text)
 
