@@ -122,6 +122,23 @@ def count_pdf_pages(pdf_path) -> int:
     return num_pages
 
 
+# удалить страницы из пдф
+def delete_pdf_pages(in_pdf_path, out_pdf_path, pages: list) -> str:
+    print(f'deleting pages {in_pdf_path = }, {pages = }')
+    file_handle = fitz.open(in_pdf_path)
+
+    # удалять с конца
+    pages.sort(reverse=True)
+    for page in pages:
+        file_handle.delete_page(int(page)-1)  # номер на 1 меньше указанного
+
+    # сохранить
+    file_handle.save(out_pdf_path, garbage=4, deflate=True)
+    file_handle.close()
+    print(f'Saved modified PDF as {out_pdf_path}')
+    return out_pdf_path
+
+
 if __name__ == "__main__":
     pass
     path = r'C:\Users\Dmitrii\PycharmProjects\pdf_bot\users_data\992863889_raw.pdf'
