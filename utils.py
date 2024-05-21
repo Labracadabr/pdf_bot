@@ -50,14 +50,6 @@ def set_pers_info(user: str, key: str, val):
     print(user, f'{key}: {old_val} => {val}')
 
 
-# ссылка на скачивание тг-файла
-async def download_link_by_id(file_id: str) -> str:
-    file_info = await bot_func.get_file(file_id)
-    file_url = file_info.file_path
-    url = f'https://api.telegram.org/file/bot{TKN}/{file_url}'
-    return url
-
-
 # Фильтр, проверяющий доступ юзера
 class Access(BaseFilter):
     # фильтр принимает список со строками id
@@ -107,18 +99,6 @@ async def log(file, key, item):
     print(log_text)
 
 
-# айди из текста
-def id_from_text(text: str) -> str:
-    user_id = ''
-    for word in text.split():
-        if word.lower().startswith('id'):
-            for symbol in word:
-                if symbol.isnumeric():
-                    user_id += symbol
-            break
-    return user_id
-
-
 # написать имя и ссылку на юзера, даже если он без username
 def contact_user(user: User) -> str:
     tg_url = f'<a href="tg://user?id={user.id}">{user.full_name}</a>'
@@ -128,17 +108,12 @@ def contact_user(user: User) -> str:
 
 # изменить пдф и рендерить фото страницы
 def render_pdf_page(user: str) -> FSInputFile:
-    # путь пдф
-    raw_pdf_path = f'{users_data}/{user}_raw.pdf'
-    # путь отрендеренной фотки
-    tmp_jpg = f'{users_data}/{user}_tmp.jpg'
-
-    # задать значения
+    # прочитать БД
     coord = get_pers_info(user, 'coord')
     if coord is None:
+        # задать дефолтные значения
         coord = {"x0": 200, "y0": 200, "x1": 300, "y1": 300}
         set_pers_info(user, key='coord', val=coord)
-    # прочитать БД
     coord = get_pers_info(user=user, key='coord')
     page = get_pers_info(user=user, key='page')
     if not page:
@@ -158,6 +133,11 @@ def render_pdf_page(user: str) -> FSInputFile:
     elif mode == 'text':
         sign_path = None
         put_text = get_pers_info(user, key='put_text')
+
+    # путь пдф
+    raw_pdf_path = f'{users_data}/{user}_raw.pdf'
+    # путь отрендеренной фотки
+    tmp_jpg = f'{users_data}/{user}_tmp.jpg'
 
     process_pdf(image_path=sign_path, put_text=put_text, xyz=coord, temp_jpg_path=tmp_jpg, font=font,
                 pdf_path=raw_pdf_path, page=page)
