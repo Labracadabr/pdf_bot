@@ -54,6 +54,16 @@ async def start_command(message: Message, bot: Bot, state: FSMContext):
     await log(logs, user_id, f'{msg_time}, {user.full_name}, @{user.username}, id {user.id}, {user.language_code}')
 
 
+# кнопка Назад
+@router.message(F.text == 'Назад')
+async def key_return(msg: Message, state: FSMContext):
+    await log(logs, msg.from_user.id, msg.text)
+
+    text = f'Выберите действие в меню 👇'
+    await msg.answer(text=text, reply_markup=keyboards.keyboard_menu)
+    await state.clear()
+
+
 # команда translate > спросить языки
 @router.message(or_f(Command('translate'), F.text == 'Перевод'))
 async def ask_lang(msg: Message, state: FSMContext):
@@ -71,6 +81,13 @@ async def ask_lang(msg: Message, state: FSMContext):
 async def ask_read(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, msg.text)
+
+    # если нет текста
+    alert = 'Я ожидаю два языковых кода через пробел, в формате:\nen ru'
+    if not msg.text:
+        await msg.answer(text=alert)
+        return
+
     lang_pair = msg.text.lower().split()
     print(f'{lang_pair = }')
 
@@ -91,7 +108,7 @@ async def ask_read(msg: Message, state: FSMContext):
         await msg.answer(text=text, reply_markup=keyboards.keyboard_read)
 
     elif len(lang_pair) != 2:
-        await msg.answer(text='Я ожидаю два языковых кода через пробел, в формате:\nen ru')
+        await msg.answer(text=alert)
 
     else:
         wrong = ''
@@ -145,10 +162,15 @@ async def put_command(msg: Message, state: FSMContext):
 
 
 # юзер прислал подпись -> спросить номер страницы
-@router.message(F.content_type.in_({'photo'}), or_f(StateFilter(FSM.put_sign), StateFilter(FSM.wait_page), ))
+@router.message(or_f(StateFilter(FSM.put_sign), StateFilter(FSM.wait_page), ))
 async def save_sign(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, 'reading sign')
+
+    # если нет фото
+    if not msg.photo:
+        await msg.answer(text='Я ожидаю фото подписи')
+        return
 
     # download
     inp_path = f'{users_data}/{user}_raw.jpg'
@@ -171,14 +193,20 @@ async def save_sign(msg: Message, bot: Bot, state: FSMContext):
 
 
 # юзер прислал свой ПДФ
-@router.message(F.content_type.in_({'document'}), StateFilter(FSM.wait_pdf))
+@router.message(StateFilter(FSM.wait_pdf))
 async def receive_pdf(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     await bot.send_chat_action(action='typing', chat_id=user)
+
+    alert = 'Я ожидаю файл в формате PDF'
+    if not msg.document:
+        await msg.answer(text=alert)
+        return
+
     doc_type = msg.document.mime_type
     await log(logs, user, f'{doc_type = }')
     if not doc_type.endswith('pdf'):
-        await msg.answer(text="Я ожидаю файл в формате PDF")
+        await msg.answer(text=alert)
         return
     msg_to_delete = await msg.answer(text="Скачиваю ваш файл...")
 
@@ -226,6 +254,12 @@ async def page_num(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     page = msg.text
 
+    # если нет текста
+    alert = 'Я ожидаю номер страницы'
+    if not msg.text:
+        await msg.answer(text=alert)
+        return
+
     # правильность ввода
     if page.isnumeric():
         # проверить число страниц
@@ -242,7 +276,7 @@ async def page_num(msg: Message, bot: Bot, state: FSMContext):
                               'затем нажмите галочку ✅, чтобы сохранить и получить файл.')
         await state.clear()
     else:
-        await msg.answer(text='Я ожидаю номер страницы')
+        await msg.answer(text=alert)
         return
 
     # рендерить пдф
@@ -254,10 +288,17 @@ async def page_num(msg: Message, bot: Bot, state: FSMContext):
 
 
 # юзер прислал текст для вставки -> спросить номер страницы
-@router.message(StateFilter(FSM.put_text), F.content_type.in_({'text'}), )
+@router.message(StateFilter(FSM.put_text))
 async def save_text(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
-    await log(logs, user, 'reading text')
+
+    # если нет текста
+    alert = 'Я ожидаю текст для вставки в ПДФ'
+    if not msg.text:
+        await msg.answer(text=alert)
+        return
+
+    await log(logs, user, 'reading put_text')
 
     # сохранить
     set_pers_info(user=user, key='put_text', val=msg.text)
@@ -289,7 +330,7 @@ async def nav(callback: CallbackQuery, bot: Bot):
 
         axis, value = data.split('_')
         value = int(value)
-        print(f'{axis = }, {value = }')
+        print(f'{axis, value = }')
         print(f'{coord = }')
 
         # координаты одной оси, обоих углов
@@ -308,6 +349,7 @@ async def nav(callback: CallbackQuery, bot: Bot):
             # координаты одного угла, обоих осей
             coord['x1'] += value
             coord['y1'] += value
+            set_pers_info(user=user, key='coord', val=coord)
 
         elif mode == 'text':
             # шрифт
@@ -316,7 +358,6 @@ async def nav(callback: CallbackQuery, bot: Bot):
 
     # сохранить
     elif data in 'save':
-        # прочитать БД
         sign_path = put_text = None
         if mode == 'sign':
             sign_path = f'{users_data}/{user}_transp.png'
@@ -347,10 +388,10 @@ async def nav(callback: CallbackQuery, bot: Bot):
         return
 
     if edit:
-        set_pers_info(user=user, key='coord', val=coord)
 
         tmp_jpg = f'{users_data}/{user}_tmp.jpg'
-        # process_pdf(image_path=sign_path, put_text=put_text, xyz=coord, temp_jpg_path=tmp_jpg, font=font, pdf_path=raw_pdf_path, page=page)
+        # process_pdf(image_path=sign_path, put_text=put_text, xyz=coord, temp_jpg_path=tmp_jpg,
+        # font=font, pdf_path=raw_pdf_path, page=page)
         rendered_pdf = render_pdf_page(user)
         await bot.edit_message_media(chat_id=user, message_id=msg_id, reply_markup=keyboards.keyboard_nav,
                                      media=InputMediaPhoto(media=rendered_pdf, caption=str(coord)), )
@@ -373,10 +414,17 @@ async def delete_command(msg: Message, state: FSMContext):
 
 
 # юзер указал номера страниц > удалить их и отправить пдф
-@router.message(StateFilter(FSM.delete_pages), F.content_type.in_({'text'}),)
+@router.message(StateFilter(FSM.delete_pages))
 async def delete_pages(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     await bot.send_chat_action(action='typing', chat_id=user)
+
+    # если нет текста
+    alert = 'Я ожидаю номера страниц'
+    if not msg.text:
+        await msg.answer(text=alert)
+        return
+
     await log(logs, msg.from_user.id, msg.text)
     pages_to_delete = msg.text.split()
 
@@ -395,7 +443,7 @@ async def delete_pages(msg: Message, bot: Bot, state: FSMContext):
                 await msg.answer(text=f'Укажите числа меньше. В вашем файле {pages} страниц.')
                 return
             if int(page) < 1:
-                await msg.answer(text=f'Укажите числа больше единицы.')
+                await msg.answer(text=f'Укажите числа больше нуля.')
                 return
         else:
             await msg.answer(text="Неверный формат. Я ожидаю номера страниц через пробел.")
