@@ -62,16 +62,6 @@ class Access(BaseFilter):
         return user_id_str in self.access
 
 
-# Фильтр, проверяющий принадлежность текста сообщения к списку
-class InMenuList(BaseFilter):
-    # фильтр принимает список со словами
-    def __init__(self, array: list[str]) -> None:
-        self.array = array
-
-    async def __call__(self, message: Message) -> bool:
-        return message.text in self.array
-
-
 # Состояния FSM, в которых будет находиться бот в разные моменты взаимодействия с юзером
 class FSM(StatesGroup):
     put_text = State()
