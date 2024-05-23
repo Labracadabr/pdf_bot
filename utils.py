@@ -50,18 +50,6 @@ def set_pers_info(user: str, key: str, val):
     print(user, f'{key}: {old_val} => {val}')
 
 
-# Фильтр, проверяющий доступ юзера
-class Access(BaseFilter):
-    # фильтр принимает список со строками id
-    def __init__(self, access: list[str]) -> None:
-        self.access = access
-
-    # вернуть True если юзер в списке
-    async def __call__(self, message: Message) -> bool:
-        user_id_str = str(message.from_user.id)
-        return user_id_str in self.access
-
-
 # Состояния FSM, в которых будет находиться бот в разные моменты взаимодействия с юзером
 class FSM(StatesGroup):
     put_text = State()

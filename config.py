@@ -9,12 +9,6 @@ class Config:
     translate_token: str = None
     ocr_token: str = None
 
-    host: str = None                # хост
-    dbname: str = None              # имя базы данных
-    user: str = None                # пользователь
-    password: str = None            # пароль
-    port: int = None                # порт
-
 
 # загрузить конфиг из переменных окружения
 env = Env()

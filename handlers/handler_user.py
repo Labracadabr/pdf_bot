@@ -389,10 +389,6 @@ async def nav(callback: CallbackQuery, bot: Bot):
         return
 
     if edit:
-
-        tmp_jpg = f'{users_data}/{user}_tmp.jpg'
-        # process_pdf(image_path=sign_path, put_text=put_text, xyz=coord, temp_jpg_path=tmp_jpg,
-        # font=font, pdf_path=raw_pdf_path, page=page)
         rendered_pdf = render_pdf_page(user)
         await bot.edit_message_media(chat_id=user, message_id=msg_id, reply_markup=keyboards.keyboard_nav,
                                      media=InputMediaPhoto(media=rendered_pdf, caption=str(coord)), )
