@@ -5,25 +5,24 @@ from api_integrations.ocr_api import ocr_image
 
 
 def read_sign(img_path, out_path=None):
-    print('processing:', img_path)
-    # Read the image
+    # прочитать фото и превратить в ЧБ
+    print('read_sign:', img_path)
     image = cv2.imread(img_path)
-
-    # Convert the image to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Threshold to binary
+    # преобразовать в двоичное изображение
     _, mask = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY)
 
-    # Invert the mask
+    # инвертировать
     mask = cv2.bitwise_not(mask)
 
-    # Convert the image to RGBA
+    # конвертация в RGBA
     image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
 
-    # Apply the mask to remove black areas
-    image[mask == 0] = [255, 255, 255, 0]  # Set black areas to transparent
-    # Save the transparent image
+    # сделать черное прозрачным
+    image[mask == 0] = [255, 255, 255, 0]
+
+    # сохранить
     if out_path:
         cv2.imwrite(out_path, image)
     else:
@@ -142,11 +141,4 @@ def delete_pdf_pages(in_pdf_path, out_pdf_path, pages: list) -> str:
 if __name__ == "__main__":
     pass
     path = r'C:\Users\Dmitrii\PycharmProjects\pdf_bot\users_data\992863889_raw.pdf'
-    # path = r'C:\Users\Dmitrii\Downloads\Атом 12.04.docx'
-    read_pdf_pages(path, output_path='test_pdf.txt', read_mode='ocr', language='ru',
-                   render_tmp_path=r'C:\Users\Dmitrii\PycharmProjects\pdf_bot\users_data\992863889_tmp.jpg')
-    # read_sign('signs\992863889_raw.jpg', 'signs/992863889_bin.png')
-    # inp = r'C:\Users\Dmitrii\Downloads\Атом 12.04.docx'
-    # out = r'atom.pdf'
-    # doc2pdf(inp, out)
-
+    print(count_pdf_pages(path))
