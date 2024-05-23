@@ -137,7 +137,7 @@ async def put_command(callback: CallbackQuery, bot: Bot, state: FSMContext):
 
 # команды 'put_text', 'put_sign'
 @router.message(or_f(Command('put_text', 'put_sign'),
-                     InMenuList(['Вставить подпись', 'Вставить текст'])))
+                     or_f(F.text == 'Вставить подпись', F.text == 'Вставить текст')))
 async def put_command(msg: Message, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, msg.text)
@@ -162,7 +162,7 @@ async def put_command(msg: Message, state: FSMContext):
 
 
 # юзер прислал подпись -> спросить номер страницы
-@router.message(or_f(StateFilter(FSM.put_sign), StateFilter(FSM.wait_page), ))
+@router.message(or_f(StateFilter(FSM.put_sign), ))
 async def save_sign(msg: Message, bot: Bot, state: FSMContext):
     user = str(msg.from_user.id)
     await log(logs, user, 'reading sign')
@@ -336,6 +336,7 @@ async def nav(callback: CallbackQuery, bot: Bot):
         # координаты одной оси, обоих углов
         coord[f'{axis}0'] += value
         coord[f'{axis}1'] += value
+        set_pers_info(user=user, key='coord', val=coord)
         edit = True
 
     # zoom
