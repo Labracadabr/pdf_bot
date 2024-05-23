@@ -9,28 +9,13 @@ api_url = 'https://api.ocr.space/parse/image'
 
 
 # оптическое распознавание символов на картинке с помощью компьютерного зрения
-def ocr_image(filename, overlay=False, language='eng') -> str:
-    """ OCR.space API request with local file.
-        Python3.5 - not tested on 2.7
-    :param filename: Your file path & name.
-    :param overlay: Is OCR.space overlay required in your response.
-                    Defaults to False.
-    :param api_key: OCR.space API key.
-                    Defaults to 'helloworld'.
-    :param language: Language code to be used in OCR.
-                    List of available language codes can be found on https://ocr.space/OCRAPI
-                    Defaults to 'en'.
-    :return: Result in JSON format.
-    """
-
+def ocr_image(filename, language='eng') -> str:
     # перевести код языка из 2 символов в 3, например "tr" > "tur"
-    language = language_codes.get(language)
+    if len(language) == 2:
+        language = language_codes.get(language)
 
     # запрос
-    payload = {'isOverlayRequired': overlay,
-               'apikey': apikey,
-               'language': language,
-               }
+    payload = {'apikey': apikey, 'language': language, }
     with open(filename, 'rb') as f:
         response = requests.post('https://api.ocr.space/parse/image', files={filename: f}, data=payload,)
     print('OCR status_code', response.status_code)
