@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from fitz import fitz
+import fitz
 from api_integrations.ocr_api import ocr_image
 
 
