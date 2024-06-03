@@ -303,7 +303,7 @@ async def save_text(msg: Message, state: FSMContext):
     # сохранить
     set_pers_info(user=user, key='put_text', val=msg.text)
     await msg.answer(text='Текст для вставки сохранен. Отправьте номер страницы, на которую нужно вставить.'
-                          '(отчет начинается с 1).')
+                          ' (отчет начинается с 1).')
 
     # ожидание номера страницы
     await state.set_state(FSM.wait_page)
@@ -378,8 +378,10 @@ async def nav(callback: CallbackQuery, bot: Bot):
         signed_pdf_path = f'{users_data}/{user}_{callback.from_user.first_name}-{callback.from_user.last_name}.pdf'
         process_pdf(save_path=signed_pdf_path, image_path=sign_path, put_text=put_text, xyz=coord,
                     font=font, pdf_path=raw_pdf_path, page=page)
+
+        caption = "Ваш документ подписан" if mode == 'sign' else "Текст вставлен в документ"
         await bot.send_document(chat_id=user, document=FSInputFile(signed_pdf_path),
-                                caption="Ваш документ подписан", reply_markup=keyboards.keyboard_menu)
+                                caption=caption, reply_markup=keyboards.keyboard_menu)
 
         # удалить файлы и данные юзера
         os.remove(signed_pdf_path)
